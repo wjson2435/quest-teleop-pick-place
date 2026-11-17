@@ -1,0 +1,9 @@
+# recorded demos and training runs (large, kept local)
+datasets/
+outputs/
+
+__pycache__/
+*.egg-info/
+
+# per-headset forward calibration (created with X + push)
+teleop/quest_calib.json

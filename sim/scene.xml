@@ -1,0 +1,90 @@
+<mujoco model="panda pick and place">
+  <!-- the Menagerie Panda is included unmodified -->
+  <include file="../../mujoco_menagerie/franka_emika_panda/panda.xml"/>
+  <!-- override the meshdir of the included panda.xml with a path relative to this file -->
+  <compiler meshdir="../../mujoco_menagerie/franka_emika_panda/assets"/>
+
+  <option timestep="0.002" integrator="implicitfast" cone="elliptic" impratio="10"/>
+
+  <!--
+    Frame: table top = z 0, Panda base = origin (fixed on the table).
+    The floor is one table height below (z = -0.75).
+  -->
+
+  <visual>
+    <headlight diffuse="0.4 0.4 0.4" ambient="0.25 0.25 0.25" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <quality shadowsize="4096"/>
+    <global azimuth="145" elevation="-25" offwidth="1280" offheight="960"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="floor" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="floor" texture="floor" texuniform="true" texrepeat="5 5" reflectance="0.1"/>
+    <texture type="2d" name="wood" builtin="flat" rgb1="0.62 0.47 0.33" rgb2="0.5 0.37 0.25"
+      mark="random" markrgb="0.55 0.41 0.28" random="0.3" width="512" height="512"/>
+    <material name="tabletop" texture="wood" texrepeat="4 4" specular="0.2" shininess="0.3"/>
+    <material name="leg" rgba="0.25 0.25 0.27 1" specular="0.6" shininess="0.6"/>
+    <material name="cube" rgba="0.85 0.15 0.15 1" specular="0.3"/>
+    <material name="bin" rgba="0.15 0.6 0.3 1" specular="0.2"/>
+  </asset>
+
+  <default>
+    <default class="table_leg">
+      <geom type="box" size="0.025 0.025 0.355" material="leg"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <light pos="0.3 0 2.0" dir="0 0 -1" directional="true" castshadow="true" diffuse="0.7 0.7 0.7"/>
+    <light pos="1.5 1.0 1.5" dir="-1 -0.7 -1" diffuse="0.25 0.25 0.25" castshadow="false"/>
+
+    <geom name="floor" type="plane" pos="0 0 -0.75" size="0 0 0.05" material="floor"/>
+
+    <!-- table: 120 x 90 cm, 4 cm thick, 75 cm high. The Panda is fixed near the back edge -->
+    <body name="table" pos="0.35 0 0">
+      <geom name="table_top" type="box" pos="0 0 -0.02" size="0.6 0.45 0.02" material="tabletop"
+        friction="1 0.005 0.0001"/>
+      <geom name="leg_fl" class="table_leg" pos=" 0.55  0.4 -0.395"/>
+      <geom name="leg_fr" class="table_leg" pos=" 0.55 -0.4 -0.395"/>
+      <geom name="leg_bl" class="table_leg" pos="-0.55  0.4 -0.395"/>
+      <geom name="leg_br" class="table_leg" pos="-0.55 -0.4 -0.395"/>
+    </body>
+
+    <!-- object to pick: 4 cm cube, 50 g -->
+    <body name="cube" pos="0.5 0.15 0.02">
+      <freejoint name="cube_joint"/>
+      <geom name="cube" type="box" size="0.02 0.02 0.02" material="cube" mass="0.05"
+        friction="1.5 0.01 0.001" condim="4" priority="1"/>
+    </body>
+
+    <!--
+      Place bin (open top, with collisions). mocap here; pick_place.build_sim_model makes it a fixed body.
+      Inside 12 x 12 cm, floor 5 mm thick, walls 1 cm thick and 4 cm high (above the floor top).
+      Body origin = center of the bottom of the floor (on the table top).
+      When changing the dimensions, also change BIN_FLOOR_TOP / BIN_INNER_HALF in pick_place.py.
+    -->
+    <body name="place_zone" pos="0.5 -0.2 0" mocap="true">
+      <geom name="bin_floor" type="box" pos="0 0 0.0025" size="0.07 0.07 0.0025" material="bin"/>
+      <geom name="bin_wall_xp" type="box" pos=" 0.065 0 0.025" size="0.005 0.07 0.02" material="bin"/>
+      <geom name="bin_wall_xn" type="box" pos="-0.065 0 0.025" size="0.005 0.07 0.02" material="bin"/>
+      <geom name="bin_wall_yp" type="box" pos="0  0.065 0.025" size="0.06 0.005 0.02" material="bin"/>
+      <geom name="bin_wall_yn" type="box" pos="0 -0.065 0.025" size="0.06 0.005 0.02" material="bin"/>
+    </body>
+
+    <!-- front: third-person camera recorded in the dataset (faces the robot, looks at the workspace) -->
+    <camera name="front" pos="1.25 0 0.6" xyaxes="0 1 0 -0.465 0 0.885" fovy="55"/>
+    <camera name="top" pos="0.45 0 1.7" xyaxes="0 -1 0 1 0 0"/>
+    <!-- operator: bottom-left inset of the teleop viewer (low front close-up of the cube area and the bin). Not recorded, not a policy input -->
+    <camera name="operator" pos="1.05 0.03 0.35" xyaxes="0 1 0 -0.479 0 0.878" fovy="50"/>
+  </worldbody>
+
+  <keyframe>
+    <!-- "start" so it does not clash with the "home" key of panda.xml. qpos: arm 7 + fingers 2 + cube freejoint 7 (pos 3 + quat 4) -->
+    <key name="start"
+      qpos="0 0 0 -1.57079 0 1.57079 0.7853 0.04 0.04  0.5 0.15 0.02 1 0 0 0"
+      ctrl="0 0 0 -1.57079 0 1.57079 0.7853 255"/>
+  </keyframe>
+</mujoco>
