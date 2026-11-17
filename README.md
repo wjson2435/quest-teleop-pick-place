@@ -38,15 +38,36 @@ eval.py                 policy evaluation in simulation
 
 Recorded datasets go to `datasets/` and training runs to `outputs/` (both git-ignored).
 
+## Workflow
+
+The whole pipeline in three commands (details in [Usage](#usage)):
+
+```bash
+./teleop/run_quest_teleop.sh --controller joint_impedance --dataset panda_pick_place  # 1. record demos
+DATASET=panda_pick_place_joint_impedance ./train.sh dp_v1                               # 2. train
+python eval.py outputs/dp_v1                                                            # 3. evaluate
+```
+
+The arm controller is chosen once, when recording, and the later steps follow it:
+
+| Step | Controller | What `--controller` / the dataset decides |
+|---|---|---|
+| 1. Record | `--controller <name>` (default `joint_impedance`) | the arm controller ([controllers/](controllers/)) and the matching sim model (position servos or torque motors); the dataset folder `datasets/<dataset>_<name>`; the name stored in `meta/controller.json`; whether `torque.command` is recorded (torque controllers only) |
+| 2. Train | none, pick the dataset with `DATASET=` | the policy only learns from images, state and action, no simulation runs |
+| 3. Evaluate | read automatically | `eval.py` follows the checkpoint to its training dataset and runs the policy with the controller stored there (`--controller` overrides it, with a warning) |
+
+Running step 1 again with the same `--dataset` and `--controller` appends to the same dataset.
+Recording into an existing dataset with a different controller is refused, so one dataset always
+holds demos of a single controller.
+
 ## Installation
 
 Tested on Ubuntu with Python 3.11, MuJoCo 3.17, mink 1.4, LeRobot 0.4.4 and an NVIDIA GPU.
 
 **1. Clone this repository next to MuJoCo Menagerie.** `sim/scene.xml` loads the Panda model from
-`../../mujoco_menagerie`, so both must be in the same parent folder:
-
-`teleop/oculus_reader` is a git submodule whose Quest app (APK) is stored with Git LFS, so install
-git-lfs first (`sudo apt install git-lfs && git lfs install`) and clone with `--recursive`:
+`../../mujoco_menagerie`, so both must be in the same parent folder. `teleop/oculus_reader` is a
+git submodule whose Quest app (APK) is stored with Git LFS, so install git-lfs first
+(`sudo apt install git-lfs && git lfs install`) and clone with `--recursive`:
 
 ```bash
 mkdir robot_ws && cd robot_ws
